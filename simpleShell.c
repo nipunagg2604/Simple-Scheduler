@@ -14,6 +14,7 @@ long execution_time[500];
 char start_time[500][500];
 char end_time[500][500];
 int indexx=0;
+int ncpu, tslice;
 
 char** split_input(char* input_string,char* delimeter)
 {
@@ -315,8 +316,10 @@ void init_sig_handler()
 	}
 }
 
-int main()
+int main(int argc, char** argv)
 {
+	ncpu = argv[1];
+	tslice = argv[2];
 	init_sig_handler();
 	shell_loop();
 
