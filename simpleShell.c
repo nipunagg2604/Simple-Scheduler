@@ -184,41 +184,12 @@ void launch(char* command)
 }
 
 void and_supporter(char* command) 
-{
-	int counter = 0;
-	for(int i=0; command[i] != '\0'; i++)
-	{
-		if(command[i] == '&') counter++;
-	}
+{   
 
-	char** and_split = split_input(command, "&");
-	int siz = 0;
-	pid_t pids[1000];
-	for(int i=0; and_split[i] != NULL; i++)
-	{
-		siz++;
-		pids[i] = fork();
-		if(pids[i] < 0)
-		{
-			fprintf(stderr, "Fork Error!");
-			exit(1);
-		}
-		else if(pids[i] == 0)
-		{
-			char** splitted = split_input(and_split[i], "|");
-			int siz = 0;
-			for(int i=0; splitted[i] != (char *)NULL; i++) siz++;
-			if(siz > 1) pipe_commands_execution(and_split[i]);
-			else launch(and_split[i]);
-			exit(0);
-		}
-	}
-
-	if(counter < siz)
-	{
-		int status;
-		waitpid(pids[siz-1], &status, 0);
-	}
+	char** and_split = split_input(command, " ");
+	if (and_split[0]=="submit"){
+        run_schedular_process(and_split);
+    }
 }
 
 char* read_user_input()
