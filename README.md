@@ -1,1 +1,1 @@
-# Simple-Schedular
+# Simple-Scheduler
