@@ -1,14 +1,7 @@
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/wait.h>
-#include <sys/time.h>
-#include <signal.h>
-#include <time.h>
+#include "simpleScheduler.h"
 
 int fd[100][2];
+int fdd[2];
 char command_history[500][500]; 
 long execution_time[500];
 char start_time[500][500];
@@ -17,6 +10,7 @@ int indexx=0;
 int ncpu;
 int tslice;
 int scheduler_pid;
+
 char** split_input(char* input_string,char* delimeter)
 {
     char* cpy = malloc(sizeof(char) * (500));
@@ -115,7 +109,23 @@ void run_scheduler_process(char** and_split){
 		execv(path, args);
 	}
     kill(pid,SIGSTOP);
-    enqueue(pids,pid);
+
+	char str[10];
+	sprintf(str, "%d", pid);
+	write(fd[1], str, 10);
+
+	int status = fork();
+	if(status < 0) 
+	{
+		fprintf(stderr, "Fork Error!");
+		exit(1);
+	}
+	else if(status == 0)
+	{
+		read_from_pipe();
+		exit(0);
+	}
+	wait(NULL);
 }
 
 void and_supporter(char* command) 
@@ -223,28 +233,20 @@ void init_sig_handler()
 }
 
 int main(int argc, char** argv)
-{   if (argc!=3){
+{   
+	if (argc!=3){
         exit(1);
     }
 	ncpu = atoi(argv[1]);
 	tslice = atoi(argv[2]);
+	pipe(fdd);
     scheduler_pid=fork();
     if (scheduler_pid<0){
         fprintf(stderr, "Fork Error");
 		exit(1);
     }
     else if (scheduler_pid==0){
-        char* path=find_path("./simpleScheduler");
-        char** arr[4];
-        arr[0]="./simpleScheduler";
-        char str1[10];
-        sprintf(str1, "%d", ncpu);
-        arr[1]=str1;
-        char str2[10];
-        sprintf(str2, "%d", tslice);
-        arr[2]=str2;
-        arr[3]=NULL;
-        execv("./simpleScheduler",arr);
+		call_scheduler(ncpu, tslice, fdd);
     }
 	init_sig_handler();
 	shell_loop();
