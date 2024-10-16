@@ -73,28 +73,6 @@ char* find_path(char* elf)
 	return path;
 }
 
-
-
-
-void pipe_commands_execution(char* command)
-{
-    char** all_commands=split_input(command,"|");
-    for(int i=0; all_commands[i] != (char *)NULL ;i++)
-	{
-        char** splitted=split_input(all_commands[i]," ");
-        char* path= (char*) malloc (500*sizeof(char*));
-        path=find_path(splitted[0]);
-		run_pipe_commands(path, splitted, all_commands, i);
-    }
-}
-
-void launch(char* command)
-{
-	char** args = split_input(command, " ");
-	char* path = malloc(sizeof(char) * (500));
-	path = find_path(args[0]);
-	create_process_and_run(path, command);
-}
 void run_scheduler_process(char** and_split){
     int pid = fork();
 	if(pid < 0) 
@@ -103,7 +81,7 @@ void run_scheduler_process(char** and_split){
 		exit(1);
 	}else if(pid == 0) 
 	{   char* path=find_path(and_split[1]);
-        char** args[2];
+        char* args[2];
         args[0]=and_split[1];
         args[1]=NULL;
 		execv(path, args);
@@ -112,7 +90,7 @@ void run_scheduler_process(char** and_split){
 
 	char str[10];
 	sprintf(str, "%d", pid);
-	write(fd[1], str, 10);
+	write(fdd[1], str, 10);
 
 	int status = fork();
 	if(status < 0) 
