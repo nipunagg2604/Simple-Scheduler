@@ -61,8 +61,6 @@ pid_t front(Queue* q)
 	return q->items[q->front];
 }
 
-Queue pids;
-
 void run_batch()
 {
 	int i = 0;
