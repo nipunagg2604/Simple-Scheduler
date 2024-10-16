@@ -1,11 +1,29 @@
-#include <stdio.h>
-#include <sys/wait.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <signal.h>
+#include "simpleScheduler.h"
 
-int running = 0, ncpu, tslice;
+int running = 0, ncpu, tslice,fd[2];
+void call_scheduler(int _ncpu,int _tslice,int _fd[]){
+    ncpu=_ncpu;
+    tslice=_tslice;
+    fd[0]=_fd[0];
+    fd[1]=_fd[1];
+    init_scheduler();
+}
+void read_from_pipe(){
+  char buffer[10];
+  read(fd[0],buffer,10);
+  char* endptr;
+  errno=0;
+  long pid_long=strtol(buffer,&endptr,10);
+  
+  if (errno != 0 || *endptr != '\0' || pid_long > INT_MAX || pid_long < INT_MIN) {
+        perror("Cannot convert error");
+        return 1;
+  }
+  pid_t pid=(pid_t) strtol(buffer,&endptr,10);
+  enqueue(pids,pid);
+}
 
+pid_t proc[100];
 typedef struct {
     pid_t items[1000];
     int front;
@@ -20,7 +38,7 @@ void initializeQueue(Queue* q)
 
 bool isEmpty(Queue* q) { return (q->front == q->rear - 1); }
 
-bool isFull(Queue* q) { return (q->rear == MAX_SIZE); }
+bool isFull(Queue* q) { return (q->rear == 1000); }
 
 void enqueue(Queue* q, pid_t value)
 {
@@ -60,7 +78,7 @@ pid_t front(Queue* q)
 	return q->items[q->front];
 }
 
-Queue pids;
+Queue* pids;
 
 void run_batch()
 {
@@ -80,6 +98,7 @@ void run_batch()
 	while(running < ncpu && !isEmpty(pids)) 
 	{
 		pid_t pid = front(pids);
+    proc[running]=pid;
 		kill(pid, SIGCONT);
 		dequeue(pids);
 		running++;
@@ -97,11 +116,7 @@ void init_scheduler()
 
 int main(int argc, char** argv) 
 {
-	ncpu = atoi(argv[1]);
-	tslice = atoi(argv[2]);
-	init_scheduler();
-
-
+	
 	return 0;
 }
 
