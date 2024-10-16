@@ -7,21 +7,22 @@
 #include <sys/mman.h>
 #include <sys/shm.h>
 #include <semaphore.h>
+#include <fcntl.h>
 
 int running = 0,proc[1000];
-shm_t* shm;
 typedef struct {
     pid_t items[1000];
     int front;
     int rear;
 } Queue;
 
-typedef struct {
+typedef struct shm_t{
+	int ncpu, tslice;
     Queue pids;
     sem_t queue_empty;
-    int ncpu;
-    int tslice;
 } shm_t;
+
+shm_t* shm;
 
 void initializeQueue(Queue* q)
 {
@@ -34,25 +35,22 @@ bool isEmpty(Queue* q) { return (q->front == q->rear - 1); }
 bool isFull(Queue* q) { return (q->rear == 1000); }
 
 void enqueue(Queue* q, pid_t value)
-{   sem_wait(&shm->queue_empty);
+{
     if (isFull(q)) {
         printf("Queue is full\n");
         return;
     }
     q->items[q->rear] = value;
     q->rear++;
-    sem_post(&shm->queue_empty);
 }
 
 void dequeue(Queue* q)
 {
-    sem_wait(&shm->queue_empty);
     if (isEmpty(q)) {
         printf("Queue is empty\n");
         return;
     }
     q->front++;
-    sem_post(&shm->queue_empty);
 }
 
 void cleanup(shm_t *shm,char* shm_name) { 
@@ -75,7 +73,7 @@ void cleanup(shm_t *shm,char* shm_name) {
 }
 
 void printQueue(Queue* q)
-{   sem_wait(&shm->queue_empty);
+{   
     if (isEmpty(q)) {
         printf("Queue is empty\n");
         return;
@@ -85,15 +83,14 @@ void printQueue(Queue* q)
     for (int i = q->front + 1; i < q->rear; i++) {
         printf("%d ", q->items[i]);
     }printf("\n");
-    sem_post(&shm->queue_empty);
 }
 
 pid_t front(Queue* q)
 {
-	return q->items[q->front];
+	return q->items[q->front + 1];
 }
 
-void run_batch()
+int run_batch()
 {
 	int i = 0;
 	while(i < running)
@@ -102,7 +99,9 @@ void run_batch()
 		if(kill(pid, 0) == 0) 
 		{
 			kill(pid, SIGSTOP);
-			enqueue(shm, pid);
+			sem_wait(&shm->queue_empty);
+			enqueue(&shm->pids, pid);
+			sem_post(&shm->queue_empty);
 		}
 		i++;
 	}
@@ -110,25 +109,31 @@ void run_batch()
 	running = 0;
 	while(running < shm->ncpu && !isEmpty(&(shm->pids))) 
 	{
+		sem_wait(&shm->queue_empty);
 		pid_t pid = front(&(shm->pids));
-		kill(pid, SIGCONT);
 		dequeue(&(shm->pids));
+		sem_post(&shm->queue_empty);
 		running++;
+		kill(pid, SIGCONT);
 	}
+
+	if(running == 0) return 0;
+	return 1;
 }
 
 void init_scheduler()
 {
 	while(1)
 	{
-		run_batch();
-		sleep(shm->tslice);
+		int status = run_batch();
+		if(status) sleep(shm->tslice);
 	}
 }
 
 int main(int argc, char** argv) 
-{ if (argc<2){
-      fprintf(stderr, "Less number of command line arguments\n", argv[0]);
+{ 
+	if (argc<2){
+      fprintf(stderr, "Less number of command line arguments\n");
       exit(1);
   }
   char* shm_name=argv[1];
@@ -141,11 +146,12 @@ int main(int argc, char** argv)
         exit(1);
     }
 
-   shm = mmap(0, sizeof(shm_t), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    shm = mmap(0, sizeof(shm_t), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     if (shm == MAP_FAILED) {
         perror("mmap");
         exit(1);
     }
+
 	init_scheduler();
 
   munmap(shm, sizeof(shm_t));
