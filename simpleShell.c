@@ -7,6 +7,9 @@
 #include <sys/time.h>
 #include <signal.h>
 #include <time.h>
+#include <sys/mman.h>
+#include <sys/shm.h>
+#include <semaphore.h>
 
 int fd[100][2];
 char command_history[500][500]; 
@@ -14,9 +17,68 @@ long execution_time[500];
 char start_time[500][500];
 char end_time[500][500];
 int indexx=0;
-int ncpu;
-int tslice;
 int scheduler_pid;
+
+typedef struct {
+    pid_t items[1000];
+    int front;
+    int rear;
+} Queue;
+
+void initializeQueue(Queue* q)
+{
+    q->front = -1;
+    q->rear = 0;
+}
+
+bool isEmpty(Queue* q) { return (q->front == q->rear - 1); }
+
+bool isFull(Queue* q) { return (q->rear == 1000); }
+
+void enqueue(Queue* q, pid_t value)
+{
+    if (isFull(q)) {
+        printf("Queue is full\n");
+        return;
+    }
+    q->items[q->rear] = value;
+    q->rear++;
+}
+
+void dequeue(Queue* q)
+{
+    if (isEmpty(q)) {
+        printf("Queue is empty\n");
+        return;
+    }
+    q->front++;
+}
+
+void printQueue(Queue* q)
+{
+    if (isEmpty(q)) {
+        printf("Queue is empty\n");
+        return;
+    }
+
+    printf("Current Queue: ");
+    for (int i = q->front + 1; i < q->rear; i++) {
+        printf("%d ", q->items[i]);
+    }
+    printf("\n");
+}
+
+pid_t front(Queue* q)
+{
+	return q->items[q->front];
+}
+
+typedef struct shm_t{
+	int ncpu, tslice;
+	Queue pids;
+	sem_t queue_empty;
+} shm_t;
+
 char** split_input(char* input_string,char* delimeter)
 {
     char* cpy = malloc(sizeof(char) * (500));
@@ -115,7 +177,9 @@ void run_scheduler_process(char** and_split){
 		execv(path, args);
 	}
     kill(pid,SIGSTOP);
-    enqueue(pids,pid);
+	sem_wait(&shm->queue_empty);
+    enqueue(&shm->pids, pid);
+	sem_post(&shm->queue_empty);
 }
 
 void and_supporter(char* command) 
@@ -222,12 +286,77 @@ void init_sig_handler()
 	}
 }
 
-int main(int argc, char** argv)
-{   if (argc!=3){
+shm_t* setup()
+{
+	const char* shm_name = "/shared_mem";
+	int shm_fd;
+	shm_t *shm;
+
+	shm_fd = shm_open(shm_name, O_CREAT | O_RDWR, 0666);
+    if (shm_fd == -1) {
+        perror("shm_open");
         exit(1);
     }
-	ncpu = atoi(argv[1]);
-	tslice = atoi(argv[2]);
+
+    if(ftruncate(shm_fd, sizeof(shm_t)) == -1) 
+	{
+        perror("ftruncate");
+        close(shm_fd);
+        exit(1);
+    }
+
+    shm = mmap(0, sizeof(shm_t), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    if(shm == MAP_FAILED) 
+	{
+        perror("mmap");
+        close(shm_fd);
+        exit(1);
+    }
+
+    // Optional: Initialize the shared memory region (if needed)
+    memset(shm, 0, sizeof(shm_t)); // Initialize memory to zero
+
+    return shm;
+}
+
+void cleanup(shm_t *shm) {
+    const char *shm_name = "/shared_mem"; 
+
+    if (munmap(shm, sizeof(shm_t)) == -1) {
+        perror("munmap");
+        exit(1);
+    }
+
+    int shm_fd = shm_open(shm_name, O_RDWR, 0666); 
+    if (shm_fd == -1) {
+        perror("shm_open");
+        exit(1);
+    }
+    if (close(shm_fd) == -1) {
+        perror("close");
+        exit(1);
+    }
+
+    if (shm_unlink(shm_name) == -1) {
+        perror("shm_unlink");
+        exit(1);
+    }
+}
+
+int main(int argc, char** argv)
+{   
+	if (argc!=3){
+        exit(1);
+    }
+
+	shm_t* shm = setup();
+	sem_init(&shm->queue_empty, 1, 1);
+
+	initializeQueue(&shm->pids);
+
+	shm->ncpu = atoi(argv[1]);
+	shm->tslice = atoi(argv[2]);
+
     scheduler_pid=fork();
     if (scheduler_pid<0){
         fprintf(stderr, "Fork Error");
@@ -235,18 +364,15 @@ int main(int argc, char** argv)
     }
     else if (scheduler_pid==0){
         char* path=find_path("./simpleScheduler");
-        char** arr[4];
+        char* arr[2];
         arr[0]="./simpleScheduler";
-        char str1[10];
-        sprintf(str1, "%d", ncpu);
-        arr[1]=str1;
-        char str2[10];
-        sprintf(str2, "%d", tslice);
-        arr[2]=str2;
-        arr[3]=NULL;
-        execv("./simpleScheduler",arr);
+        arr[1] = "/shared_mem";
+        execv("./simpleScheduler", arr);
     }
 	init_sig_handler();
 	shell_loop();
+
+	cleanup(shm);
+
 	return 0;
 }
