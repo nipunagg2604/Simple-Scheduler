@@ -96,7 +96,9 @@ int run_batch()
 	while(i < running)
 	{
 		pid_t pid = proc[i];
-		if(kill(pid, 0) == 0) 
+		int status;
+		pid_t result = waitpid(pid, &status, WNOHANG);
+		if(result == 0)
 		{
 			kill(pid, SIGSTOP);
 			sem_wait(&shm->queue_empty);
@@ -113,6 +115,7 @@ int run_batch()
 		pid_t pid = front(&(shm->pids));
 		dequeue(&(shm->pids));
 		sem_post(&shm->queue_empty);
+		proc[running] = pid;
 		running++;
 		kill(pid, SIGCONT);
 	}
