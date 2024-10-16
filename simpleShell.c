@@ -110,7 +110,7 @@ void and_supporter(char* command)
 {   
 
 	char** and_split = split_input(command, " ");
-	if (and_split[0]=="submit"){
+	if (strcmp(and_split[0],"submit")==0){
         run_scheduler_process(and_split);
     }
 }
