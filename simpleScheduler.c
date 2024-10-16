@@ -3,9 +3,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
+#include <stdbool.h>
 
 int running = 0, ncpu, tslice;
-
+int pids[1000],proc[1000];
 typedef struct {
     pid_t items[1000];
     int front;
@@ -20,7 +21,7 @@ void initializeQueue(Queue* q)
 
 bool isEmpty(Queue* q) { return (q->front == q->rear - 1); }
 
-bool isFull(Queue* q) { return (q->rear == MAX_SIZE); }
+bool isFull(Queue* q) { return (q->rear == 1000); }
 
 void enqueue(Queue* q, pid_t value)
 {
