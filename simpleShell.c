@@ -200,19 +200,19 @@ void shell_loop()
 	{
 		printf("acer@FalleN:~$");
 		command = read_user_input();
-		strcpy(command_history[indexx], command);
-        time_t st=time(NULL);
-        struct tm *local_time = localtime(&st);
-        strftime(start_time[indexx], sizeof(start_time[indexx]), "%Y-%m-%d %H:%M:%S", local_time);
-        long start = current_time();
+	//	strcpy(command_history[indexx], command);
+    //    time_t st=time(NULL);
+    //    struct tm *local_time = localtime(&st);
+    //    strftime(start_time[indexx], sizeof(start_time[indexx]), "%Y-%m-%d %H:%M:%S", local_time);
+    //    long start = current_time();
 		if(strcmp(cmpr, command) == 0) show_history();
 		else and_supporter(command);
-        long end = current_time();
-        time_t en=time(NULL);
-        local_time = localtime(&en);
-        strftime(end_time[indexx], sizeof(end_time[indexx]), "%Y-%m-%d %H:%M:%S", local_time);
-        long total_time = (long)(end - start);
-        execution_time[indexx]=total_time;
+//        long end = current_time();
+  //      time_t en=time(NULL);
+   //     local_time = localtime(&en);
+   //     strftime(end_time[indexx], sizeof(end_time[indexx]), "%Y-%m-%d %H:%M:%S", local_time);
+   //     long total_time = (long)(end - start);
+   //     execution_time[indexx]=total_time;
         indexx++;
 
 		free(command);
@@ -354,6 +354,7 @@ int main(int argc, char** argv)
         arr[1] = "/shared_mem";
         execv("./simpleScheduler", arr);
     }
+
 	init_sig_handler();
 	shell_loop();
 
