@@ -10,6 +10,8 @@
 #include <sys/mman.h>
 #include <sys/shm.h>
 #include <semaphore.h>
+#include <stdbool.h>
+#include <fcntl.h>
 
 int fd[100][2];
 char command_history[500][500]; 
@@ -70,14 +72,17 @@ void printQueue(Queue* q)
 
 pid_t front(Queue* q)
 {
-	return q->items[q->front];
+	return q->items[q->front + 1];
 }
 
-typedef struct shm_t{
+typedef struct shm_t
+{
 	int ncpu, tslice;
 	Queue pids;
 	sem_t queue_empty;
 } shm_t;
+
+shm_t* shm;
 
 char** split_input(char* input_string,char* delimeter)
 {
@@ -142,27 +147,6 @@ char* find_path(char* elf)
 }
 
 
-
-
-void pipe_commands_execution(char* command)
-{
-    char** all_commands=split_input(command,"|");
-    for(int i=0; all_commands[i] != (char *)NULL ;i++)
-	{
-        char** splitted=split_input(all_commands[i]," ");
-        char* path= (char*) malloc (500*sizeof(char*));
-        path=find_path(splitted[0]);
-		run_pipe_commands(path, splitted, all_commands, i);
-    }
-}
-
-void launch(char* command)
-{
-	char** args = split_input(command, " ");
-	char* path = malloc(sizeof(char) * (500));
-	path = find_path(args[0]);
-	create_process_and_run(path, command);
-}
 void run_scheduler_process(char** and_split){
     int pid = fork();
 	if(pid < 0) 
@@ -171,12 +155,13 @@ void run_scheduler_process(char** and_split){
 		exit(1);
 	}else if(pid == 0) 
 	{   char* path=find_path(and_split[1]);
-        char** args[2];
+        char* args[2];
         args[0]=and_split[1];
         args[1]=NULL;
 		execv(path, args);
 	}
     kill(pid,SIGSTOP);
+
 	sem_wait(&shm->queue_empty);
     enqueue(&shm->pids, pid);
 	sem_post(&shm->queue_empty);
@@ -186,7 +171,7 @@ void and_supporter(char* command)
 {   
 
 	char** and_split = split_input(command, " ");
-	if (and_split[0]=="submit"){
+	if(strcmp(and_split[0], "submit") == 0){
         run_scheduler_process(and_split);
     }
 }
@@ -349,7 +334,7 @@ int main(int argc, char** argv)
         exit(1);
     }
 
-	shm_t* shm = setup();
+	shm = setup();
 	sem_init(&shm->queue_empty, 1, 1);
 
 	initializeQueue(&shm->pids);
@@ -364,7 +349,7 @@ int main(int argc, char** argv)
     }
     else if (scheduler_pid==0){
         char* path=find_path("./simpleScheduler");
-        char* arr[2];
+        char* arr[3];
         arr[0]="./simpleScheduler";
         arr[1] = "/shared_mem";
         execv("./simpleScheduler", arr);
