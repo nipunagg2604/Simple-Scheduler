@@ -14,8 +14,9 @@ long execution_time[500];
 char start_time[500][500];
 char end_time[500][500];
 int indexx=0;
-int ncpu, tslice;
-
+int ncpu;
+int tslice;
+int scheduler_pid;
 char** split_input(char* input_string,char* delimeter)
 {
     char* cpy = malloc(sizeof(char) * (500));
@@ -78,90 +79,8 @@ char* find_path(char* elf)
 	return path;
 }
 
-void create_process_and_run(char* path, char* command)
-{
-	int status = fork();
-	if(status < 0) 
-	{
-		fprintf(stderr, "Fork Error");
-		exit(1);
-	}else if(status == 0) 
-	{
-		char** args = split_input(command," ");
-		execv(path, args);
-	}
-	int gett;
-	waitpid(status, &gett, 0);
-}
 
-void run_pipe_commands (char* path, char** splitted,char** all_commands,int i){
-    if (i==0){
-		pipe(fd[0]);
-        int pid;
-        int status;
-        pid=fork();
-        if (pid<0){
-            printf("Forking failed\n");
-            exit(1);
-        }else if (pid==0){
-            close(fd[0][0]);
-            if(dup2(fd[0][1],STDOUT_FILENO) == -1)
-			{
-				fprintf(stderr, "Dup Error!");
-				exit(1);
-			}
 
-            execv(path, splitted);
-
-        }close (fd[0][1]);
-        waitpid(pid,&status,0);
-    }else if (all_commands[i+1]==NULL){
-		pipe(fd[i]);
-        int pid;
-        int status;
-        pid=fork();
-        if (pid<0){
-            printf("Forking failed\n");
-            exit(1);
-        }else if (pid==0){
-            close(fd[i][1]);
-            if(dup2(fd[i-1][0],STDIN_FILENO) == -1)
-			{
-				fprintf(stderr, "Dup Error!");
-				exit(1);
-			}
-
-            execv(path, splitted);
-
-        }close (fd[i-1][1]);
-        waitpid(pid,&status,0);
-    }else{
-		pipe(fd[i]);
-        int pid;
-        int status;
-        pid=fork();
-        if (pid<0){
-            printf("Forking failed\n");
-            exit(1);
-        }else if (pid==0){
-            if(dup2(fd[i][1],STDOUT_FILENO) == -1)
-			{
-				fprintf(stderr, "Dup Error!");
-				exit(1);
-			}
-
-            if(dup2(fd[i-1][0],STDIN_FILENO) == -1)
-			{
-				fprintf(stderr, "Dup Error!");
-				exit(1);
-			}
-            execv(path, splitted);
-
-        }close (fd[i][1]);
-        close (fd[i-1][0]);
-        waitpid(pid,&status,0);
-    }
-}
 
 void pipe_commands_execution(char* command)
 {
@@ -182,13 +101,29 @@ void launch(char* command)
 	path = find_path(args[0]);
 	create_process_and_run(path, command);
 }
+void run_scheduler_process(char** and_split){
+    int pid = fork();
+	if(pid < 0) 
+	{
+		fprintf(stderr, "Fork Error");
+		exit(1);
+	}else if(pid == 0) 
+	{   char* path=find_path(and_split[1]);
+        char** args[2];
+        args[0]=and_split[1];
+        args[1]=NULL;
+		execv(path, args);
+	}
+    kill(pid,SIGSTOP);
+    enqueue(pids,pid);
+}
 
 void and_supporter(char* command) 
 {   
 
 	char** and_split = split_input(command, " ");
 	if (and_split[0]=="submit"){
-        run_schedular_process(and_split);
+        run_scheduler_process(and_split);
     }
 }
 
@@ -270,7 +205,7 @@ static void sig_handler(int signum)
 			size_t sz = strlen(str);
 			write(STDOUT_FILENO, str, sz);
 			write(STDOUT_FILENO, " ms\n", 4);
-		}
+		}kill (scheduler_pid,SIGKILL);
 		exit(0);
 	}
 }
@@ -288,12 +223,30 @@ void init_sig_handler()
 }
 
 int main(int argc, char** argv)
-{
-	ncpu = argv[1];
-	tslice = argv[2];
+{   if (argc!=3){
+        exit(1);
+    }
+	ncpu = atoi(argv[1]);
+	tslice = atoi(argv[2]);
+    scheduler_pid=fork();
+    if (scheduler_pid<0){
+        fprintf(stderr, "Fork Error");
+		exit(1);
+    }
+    else if (scheduler_pid==0){
+        char* path=find_path("./simpleScheduler");
+        char** arr[4];
+        arr[0]="./simpleScheduler";
+        char str1[10];
+        sprintf(str1, "%d", ncpu);
+        arr[1]=str1;
+        char str2[10];
+        sprintf(str2, "%d", tslice);
+        arr[2]=str2;
+        arr[3]=NULL;
+        execv("./simpleScheduler",arr);
+    }
 	init_sig_handler();
 	shell_loop();
-
-
 	return 0;
 }
