@@ -82,7 +82,7 @@ void printQueue(Queue* q)
 
     printf("Current Queue: ");
     for (int i = q->front + 1; i < q->rear; i++) {
-        printf("%d   %d", q->items[i], q->priorities[i]);
+        printf("%d   %d", q->items[i]);
     }printf("\n");
 }
 

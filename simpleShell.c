@@ -78,7 +78,7 @@ pid_t front(Queue* q)
 typedef struct shm_t
 {
 	int ncpu, tslice;
-	Queue pids;
+	Queue pids[5];
 	sem_t queue_empty;
 } shm_t;
 
@@ -147,7 +147,7 @@ char* find_path(char* elf)
 }
 
 
-void run_scheduler_process(char** and_split){
+void run_scheduler_process(char** and_split,int priority){
     int pid = fork();
 	if(pid < 0) 
 	{
@@ -164,18 +164,22 @@ void run_scheduler_process(char** and_split){
     kill(pid,SIGSTOP);
 
 	sem_wait(&shm->queue_empty);
-    enqueue(&shm->pids, pid);
+    enqueue(&shm->pids[priority], pid);
 	sem_post(&shm->queue_empty);
 }
 
 void and_supporter(char* command) 
 {   
 	char** and_split = split_input(command, " ");
+	int priority=1;
 	char* path = find_path(and_split[1]);
+	if (and_split[2]!=NULL){
+		priority=atoi(and_split[2]);
+	}
 	if(and_split[1] == NULL) fprintf(stderr, "File not found! Try Again.\n");
 	else if(strcmp(path, "") == 0) fprintf(stderr, "File not found! Try Again.\n");
 	else if(strcmp(and_split[0], "submit") == 0){
-        run_scheduler_process(and_split);
+        run_scheduler_process(and_split,priority);
     }
 }
 
@@ -198,7 +202,7 @@ void show_history()
 void shell_loop() 
 {
 	char* command;
-	char* cmpr = "history";
+	//char* cmpr = "history";
 	do
 	{
 		printf("acer@FalleN:~$");
@@ -208,8 +212,8 @@ void shell_loop()
     //    struct tm *local_time = localtime(&st);
     //    strftime(start_time[indexx], sizeof(start_time[indexx]), "%Y-%m-%d %H:%M:%S", local_time);
     //    long start = current_time();
-		if(strcmp(cmpr, command) == 0) show_history();
-		else and_supporter(command);
+		//if(strcmp(cmpr, command) == 0) show_history();
+		and_supporter(command);
 //        long end = current_time();
   //      time_t en=time(NULL);
    //     local_time = localtime(&en);
