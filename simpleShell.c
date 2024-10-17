@@ -79,7 +79,7 @@ typedef struct shm_t
 {
 	int ncpu, tslice;
 	Queue pids[5];
-	sem_t queue_empty;
+	sem_t queue_empty[5];
 } shm_t;
 
 shm_t* shm;
@@ -163,9 +163,9 @@ void run_scheduler_process(char** and_split,int priority){
 	}
     kill(pid,SIGSTOP);
 
-	sem_wait(&shm->queue_empty);
+	sem_wait(&shm->queue_empty[priority]);
     enqueue(&shm->pids[priority], pid);
-	sem_post(&shm->queue_empty);
+	sem_post(&shm->queue_empty[priority]);
 }
 
 void and_supporter(char* command) 
