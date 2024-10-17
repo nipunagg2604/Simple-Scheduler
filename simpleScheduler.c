@@ -13,14 +13,13 @@ int running = 0,proc[1000];
 
 typedef struct {
     pid_t items[1000];
-	int priorities[1000];
     int front;
     int rear;
 } Queue;
 
 typedef struct shm_t{
 	int ncpu, tslice;
-    Queue pids[4];
+    Queue pids[5];
     sem_t queue_empty;
 } shm_t;
 
@@ -36,14 +35,13 @@ bool isEmpty(Queue* q) { return (q->front == q->rear - 1); }
 
 bool isFull(Queue* q) { return (q->rear == 1000); }
 
-void enqueue(Queue* q, pid_t pid, int priority)
+void enqueue(Queue* q, pid_t pid)
 {
     if (isFull(q)) {
         printf("Queue is full\n");
         return;
     }
     q->items[q->rear] = pid;
-    q->priorities[q->rear] = priority;
     q->rear++;
 }
 
@@ -88,14 +86,9 @@ void printQueue(Queue* q)
     }printf("\n");
 }
 
-pid_t front_pid(Queue* q)
+pid_t front(Queue* q)
 {
 	return q->items[q->front + 1];
-}
-
-int front_priority(Queue* q)
-{
-	return q->priorities[q->front + 1];
 }
 
 int run_batch()
