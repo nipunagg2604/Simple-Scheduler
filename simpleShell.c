@@ -154,7 +154,8 @@ void run_scheduler_process(char** and_split){
 		fprintf(stderr, "Fork Error");
 		exit(1);
 	}else if(pid == 0) 
-	{   char* path=find_path(and_split[1]);
+	{   
+		char* path=find_path(and_split[1]);
         char* args[2];
         args[0]=and_split[1];
         args[1]=NULL;
@@ -169,9 +170,11 @@ void run_scheduler_process(char** and_split){
 
 void and_supporter(char* command) 
 {   
-
 	char** and_split = split_input(command, " ");
-	if(strcmp(and_split[0], "submit") == 0){
+	char* path = find_path(and_split[1]);
+	if(and_split[1] == NULL) fprintf(stderr, "File not found! Try Again.\n");
+	else if(strcmp(path, "") == 0) fprintf(stderr, "File not found! Try Again.\n");
+	else if(strcmp(and_split[0], "submit") == 0){
         run_scheduler_process(and_split);
     }
 }
