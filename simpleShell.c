@@ -24,6 +24,7 @@ int shell_pid;
 typedef struct {
     pid_t items[1000];
 	bool up[1000];
+	int cnt[1000];
     int front;
     int rear;
 	int index[1000];
@@ -178,7 +179,6 @@ void run_scheduler_process(char** and_split,int priority, int index){
 
 int and_supporter(char* command, int index) 
 {   
-	printf("command: %s\n", command);
 	char** and_split = split_input(command, " ");
 	int priority=1;
 	char* path = find_path(and_split[1]);

@@ -10,12 +10,13 @@
 #include <fcntl.h>
 
 int running[5], proc[5][1000], proc_ind[5][1000];
-int count[5][1000], waitt[5][1000];
+int count[5][1000], waitt[5][1000], queue_cnt[5][1000];
 bool going_up[5][1000];
 
 typedef struct {
     pid_t items[1000];
 	bool up[1000];
+	int cnt[1000];
     int front;
     int rear;
 	int index[1000];
@@ -100,10 +101,10 @@ void increase_cycle(int priority)
 	for(int i=priority; i<5; i++)
 	{
 		Queue* q = &shm->pids[i];
-		for (int i=q->front;i<q->rear;i++)
+		for (int j=q->front + 1;j<q->rear;j++)
 		{
-			q->wait_cycle[i]++;
-			q->total_cnt[i]++;
+			q->wait_cycle[j]++;
+			q->total_cnt[j]++;
 		}
 	}
 }
@@ -123,19 +124,34 @@ void change_direction(Queue* q)
 	q->up[q->rear - 1] = !q->up[q->rear - 1];
 }
 
-void add_total_count(Queue* q, int add)
+void save_count(Queue* q, int val)
 {
-	q->total_cnt[q->rear - 1] += add;
+	q->cnt[q->rear - 1] = val;
 }
 
-void save_wait_time(Queue* q, int add)
+void save_total_count(Queue* q, int val)
 {
-	q->wait_cycle[q->rear - 1] += add;
+	q->total_cnt[q->rear - 1] = val;
+}
+
+void save_wait_time(Queue* q, int val)
+{
+	q->wait_cycle[q->rear - 1] = val;
+}
+
+void save_direction(Queue* q, bool dirn)
+{
+	q->up[q->rear - 1] = dirn;
 }
 
 int front_cnt(Queue* q)
 {
 	return q->total_cnt[q->front + 1];
+}
+
+int front_qcnt(Queue* q)
+{
+	return q->cnt[q->front + 1];
 }
 
 int front_wait(Queue* q)
@@ -175,6 +191,13 @@ int check_pid(int pid) {
     return 0;  // Default: Process not running
 }
 
+void save_data(Queue* q, int pr, int i)
+{
+	save_total_count(q, count[pr][i]);
+	save_wait_time(q, waitt[pr][i]);
+	save_direction(q, going_up[pr][i]);
+}
+
 int run_batch()
 {
 	for(int priority = 1; priority < 5; priority++)
@@ -185,50 +208,44 @@ int run_batch()
 			pid_t pid = proc[priority][i];
 			int indexx = proc_ind[priority][i];
 			//printf("pid: %d\n", pid);
-			int status;
+			//int status;
 			//pid_t result = waitpid(pid, &status, WNOHANG);
 			//int result = check_pid(pid);
 			//printf("result: %d\n", result);
 			//if(result == 1)
-			printf("Hello\n");
+			count[priority][i]++;
+			queue_cnt[priority][i]++;
 			if(kill(pid, 0) == 0)
 			{
-				//printf("Hello\n");
 				kill(pid, SIGSTOP);
 				if(!going_up[priority][i])
 				{
 					sem_wait(&shm->queue_empty[priority + 1]);
 					enqueue(&shm->pids[priority + 1], pid, indexx);
-					add_total_count(&shm->pids[priority + 1], count[priority][i]);
-					save_wait_time(&shm->pids[priority + 1], waitt[priority][i]);
+					save_data(&shm->pids[priority + 1], priority, i);
 					if(priority == 3) change_direction(&shm->pids[4]);
-					//printf("%d\n", priority + 1);
 					sem_post(&shm->queue_empty[priority + 1]);
 				}else
 				{
-					if(count[priority][i] % 3 == 0)
+					if(queue_cnt[priority][i] == 3)
 					{
 						sem_wait(&shm->queue_empty[priority - 1]);
 						enqueue(&shm->pids[priority - 1], pid, indexx);
-						add_total_count(&shm->pids[priority - 1], count[priority][i]);
-						save_wait_time(&shm->pids[priority - 1], waitt[priority][i]);
+						save_data(&shm->pids[priority - 1], priority, i);
 						if(priority == 2) change_direction(&shm->pids[1]);
-						//printf("%d\n", priority - 1);
 						sem_post(&shm->queue_empty[priority - 1]);
 					}else
 					{
 						sem_wait(&shm->queue_empty[priority]);
 						enqueue(&shm->pids[priority], pid, indexx);
-						add_total_count(&shm->pids[priority], 1);
-						//add_wait_time(&shm->pids[priority], 1);
-						//printf("%d\n", priority);
+						save_data(&shm->pids[priority], priority, i);
+						save_count(&shm->pids[priority], queue_cnt[priority][i]);
 						sem_post(&shm->queue_empty[priority]);
 					}
 				}
 			}
 			else 
 			{
-				printf("count: %d\n", count[priority][i]);
 				shm->total_time[indexx] = shm->tslice*count[priority][i];
 				shm->wait_time[indexx] = shm->tslice*waitt[priority][i];
 			}
@@ -236,12 +253,18 @@ int run_batch()
 		}
 
 		running[priority] = 0;
+	}
+
+	for(int priority = 1; priority < 5; priority++)
+	{
+		//running[priority] = 0;
 		while(running[priority] < shm->ncpu && !isEmpty(&(shm->pids[priority]))) 
 		{
 			sem_wait(&shm->queue_empty[priority]);
 			pid_t pid = front(&(shm->pids[priority]));
 			int indexx = front_ind(&(shm->pids[priority]));
 			int ct = front_cnt(&(shm->pids[priority]));
+			int qct = front_qcnt(&(shm->pids[priority]));
 			int wt = front_wait(&(shm->pids[priority]));
 			bool gng_up = front_up(&(shm->pids[priority]));
 			dequeue(&(shm->pids[priority]));
@@ -249,6 +272,7 @@ int run_batch()
 			proc[priority][running[priority]] = pid;
 			proc_ind[priority][running[priority]] = indexx;
 			count[priority][running[priority]] = ct;
+			queue_cnt[priority][running[priority]] = qct;
 			waitt[priority][running[priority]] = wt;
 			going_up[priority][running[priority]] = gng_up;
 
@@ -275,11 +299,6 @@ void init_scheduler()
 	}
 }
 
-void init_cnt(Queue* q)
-{
-	for(int i=0; i<1000; i++) {q->total_cnt[i] = 1; q->wait_cycle[i] = 0;}
-}
-
 int main(int argc, char** argv) 
 { 
 	if (argc<2){
@@ -301,8 +320,6 @@ int main(int argc, char** argv)
         perror("mmap");
         exit(1);
     }
-
-	for(int i=1; i<5; i++) init_cnt(&shm->pids[i]);
 
 	init_scheduler();
 
