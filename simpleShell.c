@@ -23,6 +23,8 @@ int scheduler_pid;
 
 typedef struct {
     pid_t items[1000];
+	int cnt[1000];
+	bool up[1000];
     int front;
     int rear;
 } Queue;
@@ -342,9 +344,12 @@ int main(int argc, char** argv)
     }
 
 	shm = setup();
-	sem_init(&shm->queue_empty, 1, 1);
+	for(int i=1; i<5; i++) 
+	{
+		sem_init(&shm->queue_empty[i], 1, 1);
+		initializeQueue(&shm->pids[i]);
+	}
 
-	initializeQueue(&shm->pids);
 
 	shm->ncpu = atoi(argv[1]);
 	shm->tslice = atoi(argv[2]);
