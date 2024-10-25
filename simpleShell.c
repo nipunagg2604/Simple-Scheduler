@@ -241,10 +241,40 @@ void shell_loop()
 	}while(1);
 }
 
+void cleanup(shm_t *shm) 
+{
+    const char *shm_name = "/shared_mem"; 
+
+	if(shm != NULL) {
+		if (munmap(shm, sizeof(shm_t)) == -1) {
+			perror("munmap");
+			exit(1);
+		}
+	}
+
+    int shm_fd = shm_open(shm_name, O_RDWR, 0666); 
+    if (shm_fd == -1) {
+        perror("shm_open");
+        exit(1);
+    }
+    if (close(shm_fd) == -1) {
+        perror("close");
+        exit(1);
+    }
+
+    if (shm_unlink(shm_name) == -1) {
+        perror("shm_unlink");
+        exit(1);
+    }
+
+	//for(int i=1; i<5; i++) sem_destroy(&shm->queue_empty[i]);
+}
+
 static void sig_handler(int signum)
 {
 	if(shell_pid != getpid()) {kill(getpid(), SIGKILL); return;}
-	static int counter = 0;
+	//if(shm == NULL) fprintf(stderr, "Shared memory is null\n");
+	//else {cleanup(shm); shm = NULL;}
 	if(signum == SIGINT)
 	{
 		for(int i=0; i<indexx; i++)
@@ -322,30 +352,6 @@ shm_t* setup()
     return shm;
 }
 
-void cleanup(shm_t *shm) {
-    const char *shm_name = "/shared_mem"; 
-
-    if (munmap(shm, sizeof(shm_t)) == -1) {
-        perror("munmap");
-        exit(1);
-    }
-
-    int shm_fd = shm_open(shm_name, O_RDWR, 0666); 
-    if (shm_fd == -1) {
-        perror("shm_open");
-        exit(1);
-    }
-    if (close(shm_fd) == -1) {
-        perror("close");
-        exit(1);
-    }
-
-    if (shm_unlink(shm_name) == -1) {
-        perror("shm_unlink");
-        exit(1);
-    }
-}
-
 int main(int argc, char** argv)
 {   
 	if (argc!=3){
@@ -361,13 +367,12 @@ int main(int argc, char** argv)
 		initializeQueue(&shm->pids[i]);
 	}
 
-
 	shm->ncpu = atoi(argv[1]);
 	shm->tslice = atoi(argv[2]);
 
     scheduler_pid=fork();
     if (scheduler_pid<0){
-        fprintf(stderr, "Fork Error");
+        fprintf(stderr, "Fork Error!");
 		exit(1);
     }
     else if (scheduler_pid==0){
@@ -380,8 +385,6 @@ int main(int argc, char** argv)
 
 	init_sig_handler();
 	shell_loop();
-
-	cleanup(shm);
 
 	return 0;
 }
