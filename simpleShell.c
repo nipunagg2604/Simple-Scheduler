@@ -15,7 +15,6 @@
 
 int fd[100][2];
 char command_history[500][500]; 
-pid_t pid_history[500];
 long execution_time[500];
 int indexx=0;
 int scheduler_pid;
@@ -82,7 +81,7 @@ pid_t front(Queue* q)
 }
 
 typedef struct shm_t
-{
+{	pid_t pid_history[1000];
 	int ncpu, tslice;
 	Queue pids[5];
 	sem_t queue_empty[5];
@@ -170,6 +169,7 @@ void run_scheduler_process(char** and_split,int priority, int index){
 		execv(path, args);
 	}
     kill(pid,SIGSTOP);
+	shm->pid_history[index]=pid;
 	sem_wait(&shm->queue_empty[priority]);
     enqueue(&shm->pids[priority], pid, index);
 	sem_post(&shm->queue_empty[priority]);
@@ -188,12 +188,12 @@ int and_supporter(char* command, int index)
 	if(and_split[1] == NULL) 
 	{
 		fprintf(stderr, "File not found! Try Again.\n");
-		return 0;
+		return -1;
 	}
 	else if(strcmp(path, "") == 0) 
 	{
 		fprintf(stderr, "File not found! Try Again.\n");
-		return 0;
+		return -1;
 	}
 	else if(strcmp(and_split[0], "submit") == 0){
 		if(fork() == 0) run_scheduler_process(and_split,priority, index);
@@ -227,13 +227,12 @@ void shell_loop()
 		printf("acer@FalleN:~$");
 		command = read_user_input();
 		//if(strcmp(cmpr, command) == 0) show_history();
-		pid_t status = and_supporter(command, indexx);
+		int status = and_supporter(command, indexx);
    //     long total_time = (long)(end - start);
    //     execution_time[indexx]=total_time;
         if(status != -1) 
 		{
 			strcpy(command_history[indexx], command);
-			pid_history[indexx] = status;
 			indexx++;
 		}
 
@@ -285,6 +284,13 @@ static void sig_handler(int signum)
 			size_t siz_ch = strlen(command_history[i]);
 			write(STDOUT_FILENO, command_history[i], siz_ch);
 			write(STDOUT_FILENO, buffr, 3);
+
+			char buff2[7] = "Pid : ";
+			write(STDOUT_FILENO, buff2, 6);
+			char str2[100];
+			sprintf(str2, "%d", shm->pid_history[i]);
+			size_t sz2 = strlen(str2);
+			write(STDOUT_FILENO, str2, sz2);
 
 			char buff1[17] = "Waiting time: ";
 			write(STDOUT_FILENO, buff1, 14);

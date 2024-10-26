@@ -25,6 +25,7 @@ typedef struct {
 } Queue;
 
 typedef struct shm_t{
+    pid_t pid_history[1000];
 	int ncpu, tslice;
     Queue pids[5];
     sem_t queue_empty[5];
