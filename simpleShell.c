@@ -109,14 +109,6 @@ char** split_input(char* input_string,char* delimeter)
 
 }
 
-long current_time(){
-    struct timeval time;
-    gettimeofday(&time,NULL);
-    long return_time= time.tv_sec * 1000;
-    
-    return return_time + time.tv_usec / 1000;
-}
-
 char* find_path(char* elf) 
 {
 	int status, fd[2];
@@ -213,23 +205,17 @@ char* read_user_input()
 	return str;
 }
 
-void show_history()
-{
-	for(int i=0; i<indexx; i++) printf("%d. %s\n", i+1, command_history[i]);
-}
 
 void shell_loop() 
 {
 	char* command;
-	//char* cmpr = "history";
 	do
 	{
 		printf("acer@FalleN:~$");
 		command = read_user_input();
-		//if(strcmp(cmpr, command) == 0) show_history();
+
 		int status = and_supporter(command, indexx);
-   //     long total_time = (long)(end - start);
-   //     execution_time[indexx]=total_time;
+		
         if(status != -1) 
 		{
 			strcpy(command_history[indexx], command);
