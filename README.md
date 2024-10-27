@@ -8,7 +8,6 @@
 5. [Working of the scheduler with shell](#Working-of-the-scheduler-with-shell)
 6. [Authors](#Authors)
 7. [Working Of Functions and Data Structures](#Working-Of-Functions-and-Data-Structures)
-8. [Limitations of the shell](#Limitations-of-the-shell)
 
 ## Description
 
