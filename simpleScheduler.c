@@ -263,7 +263,7 @@ int run_batch()
 
 			running[priority]++;
 			kill(pid, SIGCONT);
-			printf("pid: %d\n", pid);
+			// printf("pid: %d\n", pid);
 		}
 
 		if(running[priority] != 0) 
@@ -314,7 +314,7 @@ void init_scheduler()
 		if(status) sleep(shm->tslice);
 		// sem_wait(&shm->shell_exited_sem);
 		if(status == 0 && shm->shell_exited == 1) 
-		{	printf("%s","hello");
+		{	
 			cleanup(shm);
 			exit(0);
 		}
