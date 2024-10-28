@@ -19,6 +19,7 @@ long execution_time[500];
 int indexx=0;
 int scheduler_pid;
 int shell_pid;
+float num_process = 0;
 
 typedef struct {
     pid_t items[1000];
@@ -109,6 +110,14 @@ char** split_input(char* input_string,char* delimeter)
 
 }
 
+long current_time(){
+    struct timeval time;
+    gettimeofday(&time,NULL);
+    long return_time= time.tv_sec * 1000;
+    
+    return return_time + time.tv_usec / 1000;
+}
+
 char* find_path(char* elf) 
 {
 	int status, fd[2];
@@ -160,7 +169,6 @@ void run_scheduler_process(char** and_split,int priority, int index){
         args[1]=NULL;
 		execv(path, args);
 	}
-    kill(pid,SIGSTOP);
 	shm->pid_history[index]=pid;
 	sem_wait(&shm->queue_empty[priority]);
     enqueue(&shm->pids[priority], pid, index);
@@ -205,20 +213,27 @@ char* read_user_input()
 	return str;
 }
 
+void show_history()
+{
+	for(int i=0; i<indexx; i++) printf("%d. %s\n", i+1, command_history[i]);
+}
 
 void shell_loop() 
 {
 	char* command;
+	//char* cmpr = "history";
 	do
 	{
 		printf("acer@FalleN:~$");
 		command = read_user_input();
-
+		//if(strcmp(cmpr, command) == 0) show_history();
 		int status = and_supporter(command, indexx);
-		
+   //     long total_time = (long)(end - start);
+   //     execution_time[indexx]=total_time;
         if(status != -1) 
 		{
 			strcpy(command_history[indexx], command);
+			num_process++;
 			indexx++;
 		}
 
@@ -252,16 +267,18 @@ void cleanup(shm_t *shm)
         exit(1);
     }
 
-	//for(int i=1; i<5; i++) sem_destroy(&shm->queue_empty[i]);
+	for(int i=1; i<5; i++) sem_destroy(&shm->queue_empty[i]);
 }
 
 static void sig_handler(int signum)
 {
+	if(scheduler_pid == getpid()) {cleanup(shm); shm = NULL;}
 	if(shell_pid != getpid()) {kill(getpid(), SIGKILL); return;}
 	//if(shm == NULL) fprintf(stderr, "Shared memory is null\n");
 	//else {cleanup(shm); shm = NULL;}
 	if(signum == SIGINT)
 	{
+		float total_wait_time = 0, total_completion_time = 0;
 		for(int i=0; i<indexx; i++)
 		{
 			char buffr[3] = "   ";
@@ -277,11 +294,13 @@ static void sig_handler(int signum)
 			sprintf(str2, "%d", shm->pid_history[i]);
 			size_t sz2 = strlen(str2);
 			write(STDOUT_FILENO, str2, sz2);
+			write(STDOUT_FILENO, buffr, 3);
 
 			char buff1[17] = "Waiting time: ";
 			write(STDOUT_FILENO, buff1, 14);
 			char str1[100];
 			sprintf(str1, "%ld", shm->wait_time[i]);
+			total_wait_time += (float)shm->wait_time[i];
 			size_t sz1 = strlen(str1);
 			write(STDOUT_FILENO, str1, sz1);
 			write(STDOUT_FILENO, " s   ", 5);
@@ -290,11 +309,27 @@ static void sig_handler(int signum)
 			write(STDOUT_FILENO, buff3, 17);
 			char str[100];
 			sprintf(str, "%ld", shm->total_time[i]);
+			total_completion_time += (float)shm->total_time[i];
 			size_t sz = strlen(str);
 			write(STDOUT_FILENO, str, sz);
 			write(STDOUT_FILENO, " s\n", 3);
 
 		}kill(scheduler_pid, SIGKILL);
+
+		char buff_1[22] = "Average Waiting Time: ";
+		write(STDOUT_FILENO, buff_1, 22);
+		char str_1[100];
+		sprintf(str_1, "%f", total_wait_time/num_process);
+		write(STDOUT_FILENO, str_1, 5);
+		write(STDOUT_FILENO, " s   ", 5);
+		
+		char buff_2[25] = "Average Completion Time: ";
+		write(STDOUT_FILENO, buff_2, 25);
+		char str_2[100];
+		sprintf(str_2, "%f", total_completion_time/num_process);
+		write(STDOUT_FILENO, str_2, 5);
+		write(STDOUT_FILENO, " s\n", 3);
+
 		exit(0);
 	}
 }
