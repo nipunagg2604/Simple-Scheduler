@@ -272,15 +272,20 @@ void cleanup(shm_t *shm)
 }
 
 static void sig_handler(int signum)
- {	//printf("getpid: %d\n", getpid());
+ {	printf("getpid: %d\n", getpid());
 // 	printf("shellpid: %d\n", shell_pid);
-	if(shell_pid != getpid()) 
-		{	//printf("get: %d\n", getpid());
-			kill(getpid(), SIGKILL); 
-			return;
-		}
+	// if(shell_pid != getpid()) 
+	// 	{	//printf("get: %d\n", getpid());
+	// 		kill(getpid(), SIGKILL); 
+	// 		return;
+	// 	}
 	if(signum == SIGINT)
-	{
+
+	{	int status;
+		sem_wait(&shm->shell_exited_sem);
+		shm->shell_exited = 1;
+		sem_post(&shm->shell_exited_sem);
+		waitpid(scheduler_pid,&status,0);
 		// 
 		// printf("spid: %d\n", scheduler_pid);
 		
@@ -343,9 +348,9 @@ static void sig_handler(int signum)
 		write(STDOUT_FILENO, str_2, 5);
 		write(STDOUT_FILENO, " s\n", 3);
 
-		sem_wait(&shm->shell_exited_sem);
-		shm->shell_exited = 1;
-		sem_post(&shm->shell_exited_sem);
+		// sem_wait(&shm->shell_exited_sem);
+		// shm->shell_exited = 1;
+		// sem_post(&shm->shell_exited_sem);
 		exit(0);
 	}
 }
@@ -397,9 +402,12 @@ shm_t* setup()
 
 int main(int argc, char** argv)
 {   
+	// cleanup(shm);
+	
 	if (argc!=3){
         exit(1);
     }
+
 
 	shell_pid = getpid();
 
