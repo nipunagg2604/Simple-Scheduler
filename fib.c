@@ -8,7 +8,7 @@ int fib(int n)
 }
 
 int main(int argc, char **argv)
-{	printf("%s","hii");
+{	
 	printf("%d\n", fib(40));
 
 	return 0;
