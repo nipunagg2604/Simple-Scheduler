@@ -20,6 +20,7 @@ int indexx=0;
 int scheduler_pid;
 int shell_pid;
 float num_process = 0;
+bool correct_proc[500];
 
 typedef struct {
     pid_t items[1000];
@@ -88,6 +89,8 @@ typedef struct shm_t
 	sem_t queue_empty[5];
 	long total_time[1000];
 	long wait_time[1000];
+	bool shell_exited;
+	sem_t shell_exited_sem;
 } shm_t;
 
 shm_t* shm;
@@ -169,6 +172,7 @@ void run_scheduler_process(char** and_split,int priority, int index){
         args[1]=NULL;
 		execv(path, args);
 	}
+	// kill(pid, SIGSTOP);
 	shm->pid_history[index]=pid;
 	sem_wait(&shm->queue_empty[priority]);
     enqueue(&shm->pids[priority], pid, index);
@@ -185,18 +189,17 @@ int and_supporter(char* command, int index)
 	if (and_split[2]!=NULL){
 		priority=atoi(and_split[2]);
 	}
-	if(and_split[1] == NULL) 
+	if(and_split[1] == NULL || strcmp(path, "") == 0) 
 	{
 		fprintf(stderr, "File not found! Try Again.\n");
-		return -1;
-	}
-	else if(strcmp(path, "") == 0) 
-	{
-		fprintf(stderr, "File not found! Try Again.\n");
-		return -1;
+		return 0;
 	}
 	else if(strcmp(and_split[0], "submit") == 0){
-		if(fork() == 0) run_scheduler_process(and_split,priority, index);
+		if(fork() == 0) {
+			signal(SIGINT,SIG_IGN);
+			run_scheduler_process(and_split,priority, index);
+			exit(0);
+		}
     }
 
 	return 1;
@@ -230,12 +233,10 @@ void shell_loop()
 		int status = and_supporter(command, indexx);
    //     long total_time = (long)(end - start);
    //     execution_time[indexx]=total_time;
-        if(status != -1) 
-		{
-			strcpy(command_history[indexx], command);
-			num_process++;
-			indexx++;
-		}
+		correct_proc[indexx] = ((status == 1) ? 1 : 0);
+		strcpy(command_history[indexx], command);
+		indexx++;
+        if(status == 1) num_process++;
 
 		free(command);
 	}while(1);
@@ -271,13 +272,19 @@ void cleanup(shm_t *shm)
 }
 
 static void sig_handler(int signum)
-{
-	if(scheduler_pid == getpid()) {cleanup(shm); shm = NULL;}
-	if(shell_pid != getpid()) {kill(getpid(), SIGKILL); return;}
-	//if(shm == NULL) fprintf(stderr, "Shared memory is null\n");
-	//else {cleanup(shm); shm = NULL;}
+ {	//printf("getpid: %d\n", getpid());
+// 	printf("shellpid: %d\n", shell_pid);
+	if(shell_pid != getpid()) 
+		{	//printf("get: %d\n", getpid());
+			kill(getpid(), SIGKILL); 
+			return;
+		}
 	if(signum == SIGINT)
 	{
+		// 
+		// printf("spid: %d\n", scheduler_pid);
+		
+
 		float total_wait_time = 0, total_completion_time = 0;
 		for(int i=0; i<indexx; i++)
 		{
@@ -287,6 +294,12 @@ static void sig_handler(int signum)
 			size_t siz_ch = strlen(command_history[i]);
 			write(STDOUT_FILENO, command_history[i], siz_ch);
 			write(STDOUT_FILENO, buffr, 3);
+			if(correct_proc[i] == 0) 
+			{
+				char temp[16] = "Failed Command!\n";
+				write(STDOUT_FILENO, temp, 16);
+				continue;
+			}
 
 			char buff2[7] = "Pid : ";
 			write(STDOUT_FILENO, buff2, 6);
@@ -314,7 +327,7 @@ static void sig_handler(int signum)
 			write(STDOUT_FILENO, str, sz);
 			write(STDOUT_FILENO, " s\n", 3);
 
-		}kill(scheduler_pid, SIGKILL);
+		}
 
 		char buff_1[22] = "Average Waiting Time: ";
 		write(STDOUT_FILENO, buff_1, 22);
@@ -330,6 +343,9 @@ static void sig_handler(int signum)
 		write(STDOUT_FILENO, str_2, 5);
 		write(STDOUT_FILENO, " s\n", 3);
 
+		sem_wait(&shm->shell_exited_sem);
+		shm->shell_exited = 1;
+		sem_post(&shm->shell_exited_sem);
 		exit(0);
 	}
 }
@@ -393,9 +409,11 @@ int main(int argc, char** argv)
 		sem_init(&shm->queue_empty[i], 1, 1);
 		initializeQueue(&shm->pids[i]);
 	}
+	sem_init(&shm->shell_exited_sem, 1, 1);
 
 	shm->ncpu = atoi(argv[1]);
 	shm->tslice = atoi(argv[2]);
+	shm->shell_exited = 0;
 
     scheduler_pid=fork();
     if (scheduler_pid<0){

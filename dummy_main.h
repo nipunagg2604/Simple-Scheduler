@@ -14,6 +14,7 @@ int main(int argc, char **argv) {
     int sig;
 
     sigwait(&sigset, &sig);
+    sigprocmask(SIG_UNBLOCK, &sigset, NULL);
     int ret = dummy_main(argc, argv);
 
     

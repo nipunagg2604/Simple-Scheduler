@@ -8,6 +8,7 @@
 #include <sys/shm.h>
 #include <semaphore.h>
 #include <fcntl.h>
+#include <string.h>
 
 int running[5], proc[5][1000], proc_ind[5][1000];
 int count[5][1000], waitt[5][1000], queue_cnt[5][1000];
@@ -31,6 +32,8 @@ typedef struct shm_t{
     sem_t queue_empty[5];
 	long total_time[1000];
 	long wait_time[1000];
+	bool shell_exited;
+	sem_t shell_exited_sem;
 } shm_t;
 
 shm_t* shm;
@@ -63,25 +66,6 @@ void dequeue(Queue* q)
         return;
     }
     q->front++;
-}
-
-void cleanup(shm_t *shm,char* shm_name) { 
-
-    if (munmap(shm, sizeof(shm_t)) == -1) {
-        perror("munmap");
-        exit(1);
-    }
-
-    int shm_fd = shm_open(shm_name, O_RDWR, 0666); 
-    if (shm_fd == -1) {
-        perror("shm_open");
-        exit(1);
-    }
-    if (close(shm_fd) == -1) {
-        perror("close");
-        exit(1);
-    }
-
 }
 
 void printQueue(Queue* q)
@@ -279,6 +263,7 @@ int run_batch()
 
 			running[priority]++;
 			kill(pid, SIGCONT);
+			//printf("pid: %d\n", pid);
 		}
 
 		if(running[priority] != 0) 
@@ -291,12 +276,49 @@ int run_batch()
 	return 0;
 }
 
+void cleanup(shm_t *shm) 
+{
+    const char *shm_name = "/shared_mem"; 
+
+	if(shm != NULL) {
+		if (munmap(shm, sizeof(shm_t)) == -1) {
+			perror("munmap");
+			exit(1);
+		}
+	}
+
+    int shm_fd = shm_open(shm_name, O_RDWR, 0666); 
+    if (shm_fd == -1) {
+        perror("shm_open");
+        exit(1);
+    }
+    if (close(shm_fd) == -1) {
+        perror("close");
+        exit(1);
+    }
+
+    if (shm_unlink(shm_name) == -1) {
+        perror("shm_unlink");
+        exit(1);
+    }
+
+	for(int i=1; i<5; i++) sem_destroy(&shm->queue_empty[i]);
+	sem_destroy(&shm->shell_exited_sem);
+}
+
 void init_scheduler()
 {
 	while(1)
 	{
 		int status = run_batch();
 		if(status) sleep(shm->tslice);
+		sem_wait(&shm->shell_exited_sem);
+		if(status == 0 && shm->shell_exited == 1) 
+		{
+			cleanup(shm);
+			exit(0);
+		}
+		sem_post(&shm->shell_exited_sem);
 	}
 }
 
@@ -305,7 +327,14 @@ int main(int argc, char** argv)
 	if (argc<2){
       fprintf(stderr, "Less number of command line arguments\n");
       exit(1);
-  }
+	}
+
+	sigset_t sigset;
+    sigemptyset(&sigset);
+    sigaddset(&sigset,SIGINT);
+
+    sigprocmask(SIG_BLOCK, &sigset, NULL);
+
   char* shm_name=argv[1];
   int shm_fd;
 
