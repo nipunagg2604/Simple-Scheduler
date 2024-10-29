@@ -150,9 +150,38 @@ The purpose of this assignment is to implement a scheduler integrated with a sim
 
 
 11. **main () -**
-- The main function of the shell irst handles command line inputs of `ncpu` and `tslice`. It setups the shared memory between both the files. It then creates a child process and runs scheduler executable file using `execv`. it then calls `init_sig_handler ()` function and finally calls `shell_loop ()` function to provide user interface for inputs.
+- The main function of the shell first handles command line inputs of `ncpu` and `tslice`. It setups the shared memory between both the files. It then creates a child process and runs scheduler executable file using `execv`. it then calls `init_sig_handler ()` function and finally calls `shell_loop ()` function to provide user interface for inputs.
 
+### We made the following functions while implementing our scheduler :
+1. **increase_cycle() -**
+    - ***Parameters -*** It takes an integer "priority" as input which tells us which of the four queues we will need for the function.
+    - ***Functioning -*** The function adds 1 tslice amount of time to the waiting time and completion time of all processes sitting in one any of the queues after and including the queue with priority number "priority" and not running currently.
+  
+2. **front() -**
+    - ***Parameters -*** Takes a pointer to a Queue data structure as input
+    - ***Functioning -*** Returns the pid of the element at the front of the queue
+  
+3. **save_total_count() -**
+    - ***Parameters -*** Takes a pointer to a Queue data structure as input and an integer val
+    - ***Functioning -*** Updates the total_time of the last process added to the queue to val.
+  
+4. **change_direction() -**
+    - ***Parameters -*** Takes a pointer to a Queue data structure as input
+    - ***Functioning -*** This function is called when a process reaches the first or the last priority queue. It changes the direction of the process that is when the priority of the process is changed the next time will its priority be increased (go up) or decreases (go down).
+  
+5. **front_cnt() -**
+    - ***Parameters -*** Takes a pointer to a Queue data structure as input
+    - ***Functioning -*** Returns the total_time the process in front of queue has been in the system (running + waiting) from the time it arrived till now.
+  
+6. **run_batch() -**
+    - ***Functioning -*** The function first stops all currently running processes and adds them back to their respective ready queue if they havent terminated yet, else it updates their final completion and waiting time in the array stored in shared memory. The heurisitic for adding processes to queues is that initially any process goes down a queue once it has exhausted its tslice on this queue until it reaches queue 4. If the process is in queue 4 then it goes up till it reaches queue 1 in the following way - It is promoted by one priority if it executes 3 times on the same queue. This is done till it reaches queue 1 after which it starts to go down again and this process continues until the process terminates. Then it traverses the queues from highest to lowest priority and schedules processes until either there are no more processes left to be scheduled or ncpu number of processes have been scheduled. It returns a status of 0 or 1, 0 indicating that there was no process to run during this time slice and 1 indicating that some processes have been scheduled to run on the cpu. If the status is 1, it also calls the increase_cycle() function to increase the wait and total time of the processes not sent to run on the cpu.
 
+8. **init_scheduler() -**
+    - ***Functioning -*** Runs an infinite loop in which run batch is called and if it runs successfully, that is some processes were sent to run, then the scheduler sleeps for tslice seconds and continues in the infinite loop after waking up. If not, it checks if the shell has exited due to the SIGINT signal, if it has exited then scheduler calls cleanup and exits since it did not have any more processes to run, otherwise it continues to run remaining processes.
+  
+7. **main() -**
+    - ***Parameters -*** Takes shared memory name as parameters
+    - ***Functioning -*** Initially the SIGINT signal is blocked using sigprocmask(). Then it opens the shared memory initialized by the shell program using the shared memory name. It then calls init_scheduler() after which the scheduler begins its work and starts to schedule processes.    
 
 ## Contribution
 
