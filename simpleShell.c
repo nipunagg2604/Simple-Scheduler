@@ -337,14 +337,14 @@ static void sig_handler(int signum)
 		char buff_1[22] = "Average Waiting Time: ";
 		write(STDOUT_FILENO, buff_1, 22);
 		char str_1[100];
-		snprintf(str_1, "%f", total_wait_time/num_process);
+		snprintf(str_1,sizeof(str_1), "%f", total_wait_time/num_process);
 		write(STDOUT_FILENO, str_1, 5);
 		write(STDOUT_FILENO, " s   ", 5);
 		
 		char buff_2[25] = "Average Completion Time: ";
 		write(STDOUT_FILENO, buff_2, 25);
 		char str_2[100];
-		snprintf(str_2, "%f", total_completion_time/num_process);
+		snprintf(str_2,sizeof(str_2), "%f", total_completion_time/num_process);
 		write(STDOUT_FILENO, str_2, 5);
 		write(STDOUT_FILENO, " s\n", 3);
 
