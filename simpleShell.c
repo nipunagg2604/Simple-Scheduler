@@ -285,7 +285,7 @@ static void sig_handler(int signum)
 		sem_wait(&shm->shell_exited_sem);
 		shm->shell_exited = 1;
 		sem_post(&shm->shell_exited_sem);
-		// waitpid(scheduler_pid,&status,0);
+		waitpid(scheduler_pid,&status,0);
 		// 
 		// printf("spid: %d\n", scheduler_pid);
 		
