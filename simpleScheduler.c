@@ -260,7 +260,6 @@ int run_batch()
 			running[priority]++;
 			total_running++;
 			kill(pid, SIGCONT);
-			// printf("pid: %d\n", pid);
 		}
 
 		if(check == 0 && running[priority] != 0) check = priority;
@@ -307,13 +306,13 @@ void init_scheduler()
 	{
 		int status = run_batch();
 		if(status) sleep(shm->tslice);
-		// sem_wait(&shm->shell_exited_sem);
+		sem_wait(&shm->shell_exited_sem);
 		if(status == 0 && shm->shell_exited == 1) 
 		{	
 			cleanup(shm);
 			exit(0);
 		}
-		// sem_post(&shm->shell_exited_sem);
+		sem_post(&shm->shell_exited_sem);
 	}
 }
 
