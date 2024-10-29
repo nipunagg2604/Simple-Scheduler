@@ -43,7 +43,7 @@ bool isEmpty(Queue* q) { return (q->front == q->rear - 1); }
 
 bool isFull(Queue* q) { return (q->rear == 1000); }
 
-void enqueue(Queue* q, pid_t value, int indexxx)
+void enqueue(Queue* q, pid_t value, int indexxx, int priority)
 {
     if (isFull(q)) {
         printf("Queue is full\n");
@@ -51,6 +51,7 @@ void enqueue(Queue* q, pid_t value, int indexxx)
     }
     q->items[q->rear] = value;
 	q->index[q->rear] = indexxx;
+	if(priority == 4) q->up[q->rear] = 1;
     q->rear++;
 }
 
@@ -175,7 +176,7 @@ void run_scheduler_process(char** and_split,int priority, int index){
 	// kill(pid, SIGSTOP);
 	shm->pid_history[index]=pid;
 	sem_wait(&shm->queue_empty[priority]);
-    enqueue(&shm->pids[priority], pid, index);
+    enqueue(&shm->pids[priority], pid, index, priority);
 	sem_post(&shm->queue_empty[priority]);
 	int status;
 	waitpid(pid, &status, 0);
