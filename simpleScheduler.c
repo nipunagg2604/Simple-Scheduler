@@ -150,33 +150,6 @@ bool front_up(Queue* q)
 	return q->up[q->front + 1];
 }
 
-int check_pid(int pid) {
-    char path[40];
-    sprintf(path, "/proc/%d/stat", pid);
-    
-    FILE *stat_file = fopen(path, "r");
-    if (!stat_file) {
-        return 0;  // Process has terminated (or doesn't exist)
-    }
-    
-    // Read the contents of the /proc/<PID>/stat file to check process state
-    char buffer[1024];
-    if (fgets(buffer, sizeof(buffer), stat_file) != NULL) {
-        char state;
-        sscanf(buffer, "%*d %*s %c", &state);  // The 3rd field in /proc/<PID>/stat is the state
-        fclose(stat_file);
-        
-        if (state == 'Z') {
-            return 0;  // Process is a zombie (terminated but not reaped)
-        } else {
-            return 1;  // Process is running
-        }
-    }
-
-    fclose(stat_file);
-    return 0;  // Default: Process not running
-}
-
 void save_data(Queue* q, int pr, int i)
 {
 	save_total_count(q, count[pr][i]);
