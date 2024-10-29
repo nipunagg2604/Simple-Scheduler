@@ -260,7 +260,6 @@ int run_batch()
 			running[priority]++;
 			total_running++;
 			kill(pid, SIGCONT);
-			printf("priority: %d    pid: %d\n", priority, pid);
 			// printf("pid: %d\n", pid);
 		}
 
