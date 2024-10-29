@@ -43,7 +43,7 @@ bool isEmpty(Queue* q) { return (q->front == q->rear - 1); }
 
 bool isFull(Queue* q) { return (q->rear == 1000); }
 
-void enqueue(Queue* q, pid_t value, int indexxx)
+void enqueue(Queue* q, pid_t value, int indexxx, int priority)
 {
     if (isFull(q)) {
         printf("Queue is full\n");
@@ -51,6 +51,7 @@ void enqueue(Queue* q, pid_t value, int indexxx)
     }
     q->items[q->rear] = value;
 	q->index[q->rear] = indexxx;
+	if(priority == 4) q->up[q->rear] = 1;
     q->rear++;
 }
 
@@ -175,7 +176,7 @@ void run_scheduler_process(char** and_split,int priority, int index){
 	// kill(pid, SIGSTOP);
 	shm->pid_history[index]=pid;
 	sem_wait(&shm->queue_empty[priority]);
-    enqueue(&shm->pids[priority], pid, index);
+    enqueue(&shm->pids[priority], pid, index, priority);
 	sem_post(&shm->queue_empty[priority]);
 	int status;
 	waitpid(pid, &status, 0);
@@ -188,6 +189,11 @@ int and_supporter(char* command, int index)
 	char* path = find_path(and_split[1]);
 	if (and_split[2]!=NULL){
 		priority=atoi(and_split[2]);
+		if(priority > 4 || priority < 1) 
+		{
+			fprintf(stderr, "Incorrect priority value! Try Again.\n");
+			return 0;
+		}
 	}
 	if(and_split[1] == NULL || strcmp(path, "") == 0) 
 	{
@@ -272,13 +278,7 @@ void cleanup(shm_t *shm)
 }
 
 static void sig_handler(int signum)
- {	//printf("getpid: %d\n", getpid());
-// 	printf("shellpid: %d\n", shell_pid);
-	// if(shell_pid != getpid()) 
-	// 	{	//printf("get: %d\n", getpid());
-	// 		kill(getpid(), SIGKILL); 
-	// 		return;
-	// 	}
+ {	
 	if(signum == SIGINT)
 
 	{	int status;
@@ -289,7 +289,7 @@ static void sig_handler(int signum)
 		// 
 		// printf("spid: %d\n", scheduler_pid);
 		
-		
+
 		float total_wait_time = 0, total_completion_time = 0;
 		for(int i=0; i<indexx; i++)
 		{
