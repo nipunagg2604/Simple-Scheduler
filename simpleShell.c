@@ -43,7 +43,7 @@ bool isEmpty(Queue* q) { return (q->front == q->rear - 1); }
 
 bool isFull(Queue* q) { return (q->rear == 1000); }
 
-void enqueue(Queue* q, pid_t value, int indexxx, int priority)
+void enqueue(Queue* q, pid_t value, int indexxx)
 {
     if (isFull(q)) {
         printf("Queue is full\n");
@@ -51,7 +51,6 @@ void enqueue(Queue* q, pid_t value, int indexxx, int priority)
     }
     q->items[q->rear] = value;
 	q->index[q->rear] = indexxx;
-	if(priority == 4) q->up[q->rear] = 1;
     q->rear++;
 }
 
@@ -176,7 +175,7 @@ void run_scheduler_process(char** and_split,int priority, int index){
 	// kill(pid, SIGSTOP);
 	shm->pid_history[index]=pid;
 	sem_wait(&shm->queue_empty[priority]);
-    enqueue(&shm->pids[priority], pid, index, priority);
+    enqueue(&shm->pids[priority], pid, index);
 	sem_post(&shm->queue_empty[priority]);
 	int status;
 	waitpid(pid, &status, 0);
@@ -189,11 +188,6 @@ int and_supporter(char* command, int index)
 	char* path = find_path(and_split[1]);
 	if (and_split[2]!=NULL){
 		priority=atoi(and_split[2]);
-		if(priority > 4 || priority < 1) 
-		{
-			fprintf(stderr, "Incorrect priority value! Try Again.\n");
-			return 0;
-		}
 	}
 	if(and_split[1] == NULL || strcmp(path, "") == 0) 
 	{
@@ -278,18 +272,24 @@ void cleanup(shm_t *shm)
 }
 
 static void sig_handler(int signum)
- {	
+ {	//printf("getpid: %d\n", getpid());
+// 	printf("shellpid: %d\n", shell_pid);
+	// if(shell_pid != getpid()) 
+	// 	{	//printf("get: %d\n", getpid());
+	// 		kill(getpid(), SIGKILL); 
+	// 		return;
+	// 	}
 	if(signum == SIGINT)
 
 	{	int status;
-		sem_wait(&shm->shell_exited_sem);
-		shm->shell_exited = 1;
-		sem_post(&shm->shell_exited_sem);
-		waitpid(scheduler_pid,&status,0);
+		// sem_wait(&shm->shell_exited_sem);
+		// shm->shell_exited = 1;
+		// sem_post(&shm->shell_exited_sem);
+		// waitpid(scheduler_pid,&status,0);
 		// 
 		// printf("spid: %d\n", scheduler_pid);
 		
-
+		
 		float total_wait_time = 0, total_completion_time = 0;
 		for(int i=0; i<indexx; i++)
 		{
@@ -309,7 +309,7 @@ static void sig_handler(int signum)
 			char buff2[7] = "Pid : ";
 			write(STDOUT_FILENO, buff2, 6);
 			char str2[100];
-			sprintf(str2, "%d", shm->pid_history[i]);
+			snprintf(str2, "%d", shm->pid_history[i]);
 			size_t sz2 = strlen(str2);
 			write(STDOUT_FILENO, str2, sz2);
 			write(STDOUT_FILENO, buffr, 3);
@@ -317,7 +317,7 @@ static void sig_handler(int signum)
 			char buff1[17] = "Waiting time: ";
 			write(STDOUT_FILENO, buff1, 14);
 			char str1[100];
-			sprintf(str1, "%ld", shm->wait_time[i]);
+			snprintf(str1, "%ld", shm->wait_time[i]);
 			total_wait_time += (float)shm->wait_time[i];
 			size_t sz1 = strlen(str1);
 			write(STDOUT_FILENO, str1, sz1);
@@ -326,7 +326,7 @@ static void sig_handler(int signum)
 			char buff3[17] = "Completion time: ";
 			write(STDOUT_FILENO, buff3, 17);
 			char str[100];
-			sprintf(str, "%ld", shm->total_time[i]);
+			snprintf(str, "%ld", shm->total_time[i]);
 			total_completion_time += (float)shm->total_time[i];
 			size_t sz = strlen(str);
 			write(STDOUT_FILENO, str, sz);
@@ -337,20 +337,20 @@ static void sig_handler(int signum)
 		char buff_1[22] = "Average Waiting Time: ";
 		write(STDOUT_FILENO, buff_1, 22);
 		char str_1[100];
-		sprintf(str_1, "%f", total_wait_time/num_process);
+		snprintf(str_1, "%f", total_wait_time/num_process);
 		write(STDOUT_FILENO, str_1, 5);
 		write(STDOUT_FILENO, " s   ", 5);
 		
 		char buff_2[25] = "Average Completion Time: ";
 		write(STDOUT_FILENO, buff_2, 25);
 		char str_2[100];
-		sprintf(str_2, "%f", total_completion_time/num_process);
+		snprintf(str_2, "%f", total_completion_time/num_process);
 		write(STDOUT_FILENO, str_2, 5);
 		write(STDOUT_FILENO, " s\n", 3);
 
-		// sem_wait(&shm->shell_exited_sem);
-		// shm->shell_exited = 1;
-		// sem_post(&shm->shell_exited_sem);
+		sem_wait(&shm->shell_exited_sem);
+		shm->shell_exited = 1;
+		sem_post(&shm->shell_exited_sem);
 		exit(0);
 	}
 }
