@@ -188,6 +188,11 @@ int and_supporter(char* command, int index)
 	char* path = find_path(and_split[1]);
 	if (and_split[2]!=NULL){
 		priority=atoi(and_split[2]);
+		if(priority > 4 || priority < 1) 
+		{
+			fprintf(stderr, "Incorrect priority value! Try Again.\n");
+			return 0;
+		}
 	}
 	if(and_split[1] == NULL || strcmp(path, "") == 0) 
 	{
@@ -272,13 +277,7 @@ void cleanup(shm_t *shm)
 }
 
 static void sig_handler(int signum)
- {	printf("getpid: %d\n", getpid());
-// 	printf("shellpid: %d\n", shell_pid);
-	// if(shell_pid != getpid()) 
-	// 	{	//printf("get: %d\n", getpid());
-	// 		kill(getpid(), SIGKILL); 
-	// 		return;
-	// 	}
+ {	
 	if(signum == SIGINT)
 
 	{	int status;

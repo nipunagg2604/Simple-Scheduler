@@ -192,12 +192,6 @@ int run_batch()
 		{
 			pid_t pid = proc[priority][i];
 			int indexx = proc_ind[priority][i];
-			//printf("pid: %d\n", pid);
-			//int status;
-			//pid_t result = waitpid(pid, &status, WNOHANG);
-			//int result = check_pid(pid);
-			//printf("result: %d\n", result);
-			//if(result == 1)
 			count[priority][i]++;
 			queue_cnt[priority][i]++;
 			if(kill(pid, 0) == 0)
@@ -240,10 +234,12 @@ int run_batch()
 		running[priority] = 0;
 	}
 
+
+	int total_running = 0, check = 0;
 	for(int priority = 1; priority < 5; priority++)
 	{
 		//running[priority] = 0;
-		while(running[priority] < shm->ncpu && !isEmpty(&(shm->pids[priority]))) 
+		while(total_running < shm->ncpu && !isEmpty(&(shm->pids[priority]))) 
 		{
 			sem_wait(&shm->queue_empty[priority]);
 			pid_t pid = front(&(shm->pids[priority]));
@@ -262,18 +258,18 @@ int run_batch()
 			going_up[priority][running[priority]] = gng_up;
 
 			running[priority]++;
+			total_running++;
 			kill(pid, SIGCONT);
+			printf("priority: %d    pid: %d\n", priority, pid);
 			// printf("pid: %d\n", pid);
 		}
 
-		if(running[priority] != 0) 
-		{
-			increase_cycle(priority);
-			return 1;
-		}
+		if(check == 0 && running[priority] != 0) check = priority;
 	}
 
-	return 0;
+	if(total_running == 0) return 0;
+	increase_cycle(check);
+	return 1;
 }
 
 void cleanup(shm_t *shm) 
